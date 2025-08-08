@@ -9,10 +9,10 @@ import { roleSkillsets } from './data/roleSkillsets';
 import { generateTrainingPlan, calculateSkillGaps } from './utils/skillAnalysis';
 import { parseResume } from './utils/resumeParser';
 import { predictBestRoles, RolePrediction } from './utils/rolePredictor';
-import { generateTrainingPlanPDF } from './utils/pdfGenerator';
 import { TextToSpeechService } from './utils/textToSpeech';
 import { RoleRequirement, AnalysisResult, UserProfile } from './types';
-import { Brain, Target, TrendingUp, Users } from 'lucide-react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 function App() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -25,7 +25,6 @@ function App() {
   const tts = useMemo(() => new TextToSpeechService(), []);
 
   useEffect(() => {
-    // If user manually picks a role, recompute training plan using last extracted skills
     if (selectedRole && extractedSkills.length > 0) {
       const userProfile = buildUserProfileFromSkills(extractedSkills);
       const gaps = calculateSkillGaps(userProfile, selectedRole);
@@ -40,7 +39,6 @@ function App() {
   }, [selectedRole]);
 
   function buildUserProfileFromSkills(skills: string[]): UserProfile {
-    // No proficiency data from text extraction -> assume moderate level 3
     const userSkills = skills.map(s => ({
       name: s,
       level: 3,
@@ -60,14 +58,12 @@ function App() {
       const { text, skills } = await parseResume(file);
       setExtractedSkills(skills);
 
-      // predict best roles
       const predictions = predictBestRoles(skills, roleSkillsets, 3);
       setRoleCandidates(predictions);
 
       const bestRole = predictions[0]?.role || roleSkillsets[0];
       setSelectedRole(bestRole);
 
-      // create a quick user profile and analyze
       const userProfile = buildUserProfileFromSkills(skills);
       const gaps = calculateSkillGaps(userProfile, bestRole);
       const plan = generateTrainingPlan(gaps, bestRole);
@@ -85,19 +81,37 @@ function App() {
 
   function handleDownloadPlan() {
     if (!analysisResult) return;
-    // pdf generator expects (trainingPlan, userProfile, targetRole)
-    generateTrainingPlanPDF(
-      analysisResult.trainingPlan,
-      analysisResult.userProfile,
-      analysisResult.targetRole
-    );
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Personalized Training Plan', 14, 20);
+    doc.text(`Role: ${analysisResult.targetRole.title}`, 14, 30);
+    doc.text(`Readiness Score: ${analysisResult.trainingPlan.readinessScore}%`, 14, 40);
+    doc.text(`Timeline: ${analysisResult.trainingPlan.timeline}`, 14, 50);
+
+    const tableData = analysisResult.trainingPlan.recommendations.map(item => [
+      item.course,
+      item.provider,
+      item.duration,
+      item.priority
+    ]);
+
+    (doc as any).autoTable({
+      head: [['Course', 'Provider', 'Duration', 'Priority']],
+      body: tableData,
+      startY: 60
+    });
+
+    doc.save('training_plan.pdf');
   }
 
   async function handleSpeakPlan() {
     if (!analysisResult) return;
     try {
       setIsSpeaking(true);
-      const t = `Training plan for role ${analysisResult.targetRole.title}. Readiness score ${analysisResult.trainingPlan.readinessScore} percent. Recommended timeline ${analysisResult.trainingPlan.timeline}. Top recommendations: ${analysisResult.trainingPlan.recommendations.slice(0,3).map(r => r.course + ' by ' + r.provider).join('; ')}.`;
+      const t = `Training plan for role ${analysisResult.targetRole.title}. Readiness score ${analysisResult.trainingPlan.readinessScore} percent. Recommended timeline ${analysisResult.trainingPlan.timeline}. Top recommendations: ${analysisResult.trainingPlan.recommendations
+        .slice(0, 3)
+        .map(r => r.course + ' by ' + r.provider)
+        .join('; ')}.`;
       await tts.speak(t, { rate: 1 });
     } catch (err) {
       console.error('TTS error', err);
@@ -106,7 +120,6 @@ function App() {
     }
   }
 
-  // Mentor message speak handler for MentorAvatar's onSpeak
   const handleMentorSpeak = async (text: string) => {
     try {
       setIsSpeaking(true);
@@ -130,14 +143,29 @@ function App() {
           <div className="bg-white p-4 rounded-lg shadow">
             <h3 className="text-lg font-semibold mb-2">Role Suggestions</h3>
             <div className="space-y-2">
-              {roleCandidates.length === 0 && <p className="text-sm text-gray-500">No suggestions yet — upload a resume to get role fits.</p>}
+              {roleCandidates.length === 0 && (
+                <p className="text-sm text-gray-500">
+                  No suggestions yet — upload a resume to get role fits.
+                </p>
+              )}
               {roleCandidates.map((c: any) => (
-                <div key={c.role.id} className="p-2 border rounded flex items-center justify-between">
+                <div
+                  key={c.role.id}
+                  className="p-2 border rounded flex items-center justify-between"
+                >
                   <div>
                     <div className="font-medium">{c.role.title}</div>
-                    <div className="text-xs text-gray-500">{Math.round(c.score*10)/10} pts — matched: {c.matchedSkills.join(', ') || '—'}</div>
+                    <div className="text-xs text-gray-500">
+                      {Math.round(c.score * 10) / 10} pts — matched:{' '}
+                      {c.matchedSkills.join(', ') || '—'}
+                    </div>
                   </div>
-                  <button onClick={() => setSelectedRole(c.role)} className="text-sm px-2 py-1 bg-blue-50 text-blue-700 rounded">Use</button>
+                  <button
+                    onClick={() => setSelectedRole(c.role)}
+                    className="text-sm px-2 py-1 bg-blue-50 text-blue-700 rounded"
+                  >
+                    Use
+                  </button>
                 </div>
               ))}
             </div>
@@ -145,9 +173,11 @@ function App() {
 
           <div className="bg-white p-4 rounded-lg shadow">
             <h3 className="text-lg font-semibold mb-2">Mentor</h3>
-            {/* ensure message is always a string, pass required onSpeak and isSpeaking */}
             <MentorAvatar
-              message={analysisResult?.trainingPlan?.mentorMessage ?? 'Upload a resume to get personalized guidance.'}
+              message={
+                analysisResult?.trainingPlan?.mentorMessage ??
+                'Upload a resume to get personalized guidance.'
+              }
               onSpeak={handleMentorSpeak}
               isSpeaking={isSpeaking}
             />
@@ -159,9 +189,13 @@ function App() {
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="text-2xl font-bold">Skill Gap Identifier</h2>
-                <p className="text-sm text-gray-500">Automated skill gap detection and personalized training plans.</p>
+                <p className="text-sm text-gray-500">
+                  Automated skill gap detection and personalized training plans.
+                </p>
               </div>
-              <div className="text-sm text-gray-600">{selectedFile ? selectedFile.name : 'No file'}</div>
+              <div className="text-sm text-gray-600">
+                {selectedFile ? selectedFile.name : 'No file'}
+              </div>
             </div>
           </div>
 
@@ -172,18 +206,32 @@ function App() {
               </div>
 
               <div className="bg-white p-4 rounded-lg shadow">
-                <RoleSelector roles={roleSkillsets} selectedRole={selectedRole} onRoleSelect={(r) => setSelectedRole(r)} />
+                <RoleSelector
+                  roles={roleSkillsets}
+                  selectedRole={selectedRole}
+                  onRoleSelect={r => setSelectedRole(r)}
+                />
               </div>
 
               <div className="bg-white p-4 rounded-lg shadow">
-                {/* SkillMap expects skillGaps: SkillGap[] */}
-                <SkillMap skillGaps={calculateSkillGaps(analysisResult.userProfile, analysisResult.targetRole)} />
+                <SkillMap
+                  skillGaps={calculateSkillGaps(
+                    analysisResult.userProfile,
+                    analysisResult.targetRole
+                  )}
+                />
               </div>
 
-              <TrainingPlan trainingPlan={analysisResult.trainingPlan} onDownloadPlan={handleDownloadPlan} onSpeakPlan={handleSpeakPlan} />
+              <TrainingPlan
+                trainingPlan={analysisResult.trainingPlan}
+                onDownloadPlan={handleDownloadPlan}
+                onSpeakPlan={handleSpeakPlan}
+              />
             </>
           ) : (
-            <div className="bg-white p-6 rounded-lg shadow text-gray-500">Upload a resume to get a skill analysis and training plan.</div>
+            <div className="bg-white p-6 rounded-lg shadow text-gray-500">
+              Upload a resume to get a skill analysis and training plan.
+            </div>
           )}
         </div>
       </div>

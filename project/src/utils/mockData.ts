@@ -6,6 +6,37 @@ export const mockUserProfiles: UserProfile[] = [
   {
     currentRole: 'Junior Frontend Developer',
     experience: 2,
+    category: 'fresher',
+    cgpa: 7.5,
+    projects: [
+      {
+        title: 'Personal Portfolio Website',
+        domain: 'web',
+        technologies: ['React', 'CSS'],
+        role: 'Frontend Developer',
+        year: 2023
+      },
+      {
+        title: 'E-commerce UI',
+        domain: 'web',
+        technologies: ['React', 'TypeScript', 'Tailwind CSS'],
+        role: 'Frontend Developer',
+        year: 2022
+      }
+    ],
+    internships: [
+      {
+        company: 'StartupX',
+        role: 'Frontend Intern',
+        durationMonths: 6,
+        domain: 'web',
+        year: 2022
+      }
+    ],
+    certifications: [
+      'Front-End Web Developer Certification',
+      'Responsive Web Design Certification'
+    ],
     skills: [
       { name: 'JavaScript', level: 3, category: 'Language' },
       { name: 'HTML', level: 4, category: 'Markup' },
@@ -18,6 +49,21 @@ export const mockUserProfiles: UserProfile[] = [
   {
     currentRole: 'Marketing Coordinator',
     experience: 3,
+    category: 'corporate',
+    projects: [
+      {
+        title: 'Product Launch Campaign',
+        domain: 'marketing',
+        technologies: ['Google Analytics', 'Canva'],
+        role: 'Campaign Manager',
+        year: 2023
+      }
+    ],
+    internships: [],
+    certifications: [
+      'Digital Marketing Fundamentals',
+      'Project Management Professional (PMP)'
+    ],
     skills: [
       { name: 'Project Planning', level: 3, category: 'Management' },
       { name: 'Communication', level: 4, category: 'Soft Skills' },
@@ -37,7 +83,8 @@ export function generateMockAnalysis(targetRoleId: string): AnalysisResult {
   }
   
   const skillGaps = calculateSkillGaps(userProfile, targetRole);
-  const trainingPlan = generateTrainingPlan(skillGaps, targetRole);
+  // Pass userProfile so readiness score uses projects/internships/etc.
+  const trainingPlan = generateTrainingPlan(skillGaps, targetRole, userProfile);
   
   return {
     userProfile,
