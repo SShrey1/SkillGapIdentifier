@@ -4,7 +4,7 @@ import { RoleSelector } from "./components/RoleSelector";
 import { ReadinessScore } from "./components/ReadinessScore";
 import { SkillMap } from "./components/SkillMap";
 import { TrainingPlan } from "./components/TrainingPlan";
-import { Roadmap } from "./components/Roadmap"; // New import
+import { Roadmap } from "./components/Roadmap";
 import { MentorAvatar } from "./components/MentorAvatar";
 import { roleSkillsets } from "./data/roleSkillsets";
 import {
@@ -32,7 +32,8 @@ function App() {
   const [roleCandidates, setRoleCandidates] = useState<RolePrediction[]>([]);
   const [activeTab, setActiveTab] = useState<
     "overview" | "skillmap" | "roadmap" | "training"
-  >("overview"); // New state for tabs
+  >("overview");
+
   const tts = useMemo(() => new TextToSpeechService(), []);
 
   useEffect(() => {
@@ -46,8 +47,7 @@ function App() {
         trainingPlan: plan,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedRole]);
+  }, [selectedRole, extractedSkills]);
 
   function buildUserProfileFromSkills(skills: string[]): UserProfile {
     const userSkills = skills.map((s) => ({
@@ -152,12 +152,15 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Sidebar */}
         <div className="lg:col-span-1 space-y-4">
+          {/* Upload */}
           <div className="bg-white p-4 rounded-lg shadow">
             <h3 className="text-lg font-semibold mb-2">Upload Resume</h3>
             <FileUpload onFileSelect={handleFileSelect} loading={isAnalyzing} />
           </div>
 
+          {/* Role Suggestions */}
           <div className="bg-white p-4 rounded-lg shadow">
             <h3 className="text-lg font-semibold mb-2">Role Suggestions</h3>
             <div className="space-y-2">
@@ -189,6 +192,7 @@ function App() {
             </div>
           </div>
 
+          {/* Mentor */}
           <div className="bg-white p-4 rounded-lg shadow">
             <h3 className="text-lg font-semibold mb-2">Mentor</h3>
             <MentorAvatar
@@ -202,64 +206,70 @@ function App() {
           </div>
         </div>
 
+        {/* Main Content */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white p-4 rounded-lg shadow">
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-2xl font-bold">Skill Gap Identifier</h2>
-                <p className="text-sm text-gray-500">
-                  Automated skill gap detection and personalized training plans.
-                </p>
-              </div>
-              <div className="text-sm text-gray-600">
-                {selectedFile ? selectedFile.name : "No file"}
-              </div>
+          {/* Header */}
+          <div className="bg-white p-4 rounded-lg shadow flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">Skill Gap Identifier</h2>
+              <p className="text-sm text-gray-500">
+                Automated skill gap detection and personalized training plans.
+              </p>
+            </div>
+            <div className="text-sm text-gray-600">
+              {selectedFile ? selectedFile.name : "No file"}
             </div>
           </div>
 
           {analysisResult ? (
-            <>
-              {/* Tab Navigation */}
-              <div className="bg-white rounded-lg shadow">
-                <div className="border-b border-gray-200">
-                  <nav className="flex space-x-8 px-4" aria-label="Tabs">
-                    {[
-                      { id: "overview", name: "Overview", icon: "📊" },
-                      { id: "roadmap", name: "Roadmap", icon: "🗺️" },
-                      { id: "skillmap", name: "Skill Map", icon: "🎯" },
-                      { id: "training", name: "Training Plan", icon: "📚" },
-                    ].map((tab) => (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id as any)}
-                        className={`${
-                          activeTab === tab.id
-                            ? "border-blue-500 text-blue-600"
-                            : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
-                      >
-                        <span>{tab.icon}</span>
-                        <span>{tab.name}</span>
-                      </button>
-                    ))}
-                  </nav>
-                </div>
+            <div className="bg-white rounded-lg shadow">
+              {/* Tabs */}
+              <nav
+                className="flex gap-3 p-3 bg-gray-50 rounded-t-lg"
+                aria-label="Tabs"
+              >
+                {[
+                  { id: "overview", name: "Overview", icon: "📊" },
+                  { id: "roadmap", name: "Roadmap", icon: "🗺️" },
+                  { id: "skillmap", name: "Skill Map", icon: "🎯" },
+                  { id: "training", name: "Training Plan", icon: "📚" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                      activeTab === tab.id
+                        ? "bg-blue-600 text-white shadow"
+                        : "bg-white text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    <span>{tab.icon}</span>
+                    <span>{tab.name}</span>
+                  </button>
+                ))}
+              </nav>
 
-                <div className="p-4">
-                  {activeTab === "overview" && (
-                    <div className="space-y-6">
+              {/* Tab Content */}
+              <div className="p-6">
+                {activeTab === "overview" && (
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <div className="bg-white rounded-lg shadow p-4">
                       <ReadinessScore
                         score={analysisResult.trainingPlan.readinessScore}
                       />
+                    </div>
+                    <div className="bg-white rounded-lg shadow p-4">
                       <RoleSelector
                         roles={roleSkillsets}
                         selectedRole={selectedRole}
                         onRoleSelect={(r) => setSelectedRole(r)}
                       />
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {activeTab === "roadmap" && (
+                {activeTab === "roadmap" && (
+                  <div className="bg-white rounded-lg shadow p-4">
                     <Roadmap
                       trainingPlan={analysisResult.trainingPlan}
                       skillGaps={calculateSkillGaps(
@@ -271,27 +281,31 @@ function App() {
                         analysisResult.trainingPlan.readinessScore
                       }
                     />
-                  )}
+                  </div>
+                )}
 
-                  {activeTab === "skillmap" && (
+                {activeTab === "skillmap" && (
+                  <div className="bg-white rounded-lg shadow p-4">
                     <SkillMap
                       skillGaps={calculateSkillGaps(
                         analysisResult.userProfile,
                         analysisResult.targetRole
                       )}
                     />
-                  )}
+                  </div>
+                )}
 
-                  {activeTab === "training" && (
+                {activeTab === "training" && (
+                  <div className="bg-white rounded-lg shadow p-4">
                     <TrainingPlan
                       trainingPlan={analysisResult.trainingPlan}
                       onDownloadPlan={handleDownloadPlan}
                       onSpeakPlan={handleSpeakPlan}
                     />
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
-            </>
+            </div>
           ) : (
             <div className="bg-white p-6 rounded-lg shadow text-gray-500">
               Upload a resume to get a skill analysis and training plan.
