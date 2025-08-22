@@ -1,27 +1,39 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { FileUpload } from './components/FileUpload';
-import { RoleSelector } from './components/RoleSelector';
-import { ReadinessScore } from './components/ReadinessScore';
-import { SkillMap } from './components/SkillMap';
-import { TrainingPlan } from './components/TrainingPlan';
-import { MentorAvatar } from './components/MentorAvatar';
-import { roleSkillsets } from './data/roleSkillsets';
-import { generateTrainingPlan, calculateSkillGaps } from './utils/skillAnalysis';
-import { parseResume } from './utils/resumeParser';
-import { predictBestRoles, RolePrediction } from './utils/rolePredictor';
-import { TextToSpeechService } from './utils/textToSpeech';
-import { RoleRequirement, AnalysisResult, UserProfile } from './types';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import React, { useState, useEffect, useMemo } from "react";
+import { FileUpload } from "./components/FileUpload";
+import { RoleSelector } from "./components/RoleSelector";
+import { ReadinessScore } from "./components/ReadinessScore";
+import { SkillMap } from "./components/SkillMap";
+import { TrainingPlan } from "./components/TrainingPlan";
+import { Roadmap } from "./components/Roadmap";
+import { MentorAvatar } from "./components/MentorAvatar";
+import { roleSkillsets } from "./data/roleSkillsets";
+import {
+  generateTrainingPlan,
+  calculateSkillGaps,
+} from "./utils/skillAnalysis";
+import { parseResume } from "./utils/resumeParser";
+import { predictBestRoles, RolePrediction } from "./utils/rolePredictor";
+import { TextToSpeechService } from "./utils/textToSpeech";
+import { RoleRequirement, AnalysisResult, UserProfile } from "./types";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 function App() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedRole, setSelectedRole] = useState<RoleRequirement | null>(null);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [selectedRole, setSelectedRole] = useState<RoleRequirement | null>(
+    null
+  );
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(
+    null
+  );
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [extractedSkills, setExtractedSkills] = useState<string[]>([]);
   const [roleCandidates, setRoleCandidates] = useState<RolePrediction[]>([]);
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "skillmap" | "roadmap" | "training"
+  >("overview");
+
   const tts = useMemo(() => new TextToSpeechService(), []);
 
   useEffect(() => {
@@ -32,22 +44,21 @@ function App() {
       setAnalysisResult({
         userProfile,
         targetRole: selectedRole,
-        trainingPlan: plan
+        trainingPlan: plan,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedRole]);
+  }, [selectedRole, extractedSkills]);
 
   function buildUserProfileFromSkills(skills: string[]): UserProfile {
-    const userSkills = skills.map(s => ({
+    const userSkills = skills.map((s) => ({
       name: s,
       level: 3,
-      category: 'Inferred'
+      category: "Inferred",
     }));
     return {
-      currentRole: 'Inferred from resume',
+      currentRole: "Inferred from resume",
       experience: 0,
-      skills: userSkills
+      skills: userSkills,
     };
   }
 
@@ -70,10 +81,10 @@ function App() {
       setAnalysisResult({
         userProfile,
         targetRole: bestRole,
-        trainingPlan: plan
+        trainingPlan: plan,
       });
     } catch (err) {
-      console.error('Error analyzing file', err);
+      console.error("Error analyzing file", err);
     } finally {
       setIsAnalyzing(false);
     }
@@ -83,38 +94,45 @@ function App() {
     if (!analysisResult) return;
     const doc = new jsPDF();
     doc.setFontSize(16);
-    doc.text('Personalized Training Plan', 14, 20);
+    doc.text("Personalized Training Plan", 14, 20);
     doc.text(`Role: ${analysisResult.targetRole.title}`, 14, 30);
-    doc.text(`Readiness Score: ${analysisResult.trainingPlan.readinessScore}%`, 14, 40);
+    doc.text(
+      `Readiness Score: ${analysisResult.trainingPlan.readinessScore}%`,
+      14,
+      40
+    );
     doc.text(`Timeline: ${analysisResult.trainingPlan.timeline}`, 14, 50);
 
-    const tableData = analysisResult.trainingPlan.recommendations.map(item => [
-      item.course,
-      item.provider,
-      item.duration,
-      item.priority
-    ]);
+    const tableData = analysisResult.trainingPlan.recommendations.map(
+      (item) => [item.course, item.provider, item.duration, item.priority]
+    );
 
     (doc as any).autoTable({
-      head: [['Course', 'Provider', 'Duration', 'Priority']],
+      head: [["Course", "Provider", "Duration", "Priority"]],
       body: tableData,
-      startY: 60
+      startY: 60,
     });
 
-    doc.save('training_plan.pdf');
+    doc.save("training_plan.pdf");
   }
 
   async function handleSpeakPlan() {
     if (!analysisResult) return;
     try {
       setIsSpeaking(true);
-      const t = `Training plan for role ${analysisResult.targetRole.title}. Readiness score ${analysisResult.trainingPlan.readinessScore} percent. Recommended timeline ${analysisResult.trainingPlan.timeline}. Top recommendations: ${analysisResult.trainingPlan.recommendations
+      const t = `Training plan for role ${
+        analysisResult.targetRole.title
+      }. Readiness score ${
+        analysisResult.trainingPlan.readinessScore
+      } percent. Recommended timeline ${
+        analysisResult.trainingPlan.timeline
+      }. Top recommendations: ${analysisResult.trainingPlan.recommendations
         .slice(0, 3)
-        .map(r => r.course + ' by ' + r.provider)
-        .join('; ')}.`;
+        .map((r) => r.course + " by " + r.provider)
+        .join("; ")}.`;
       await tts.speak(t, { rate: 1 });
     } catch (err) {
-      console.error('TTS error', err);
+      console.error("TTS error", err);
     } finally {
       setIsSpeaking(false);
     }
@@ -125,7 +143,7 @@ function App() {
       setIsSpeaking(true);
       await tts.speak(text, { rate: 1 });
     } catch (err) {
-      console.error('Mentor TTS error', err);
+      console.error("Mentor TTS error", err);
     } finally {
       setIsSpeaking(false);
     }
@@ -134,12 +152,15 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Sidebar */}
         <div className="lg:col-span-1 space-y-4">
+          {/* Upload */}
           <div className="bg-white p-4 rounded-lg shadow">
             <h3 className="text-lg font-semibold mb-2">Upload Resume</h3>
             <FileUpload onFileSelect={handleFileSelect} loading={isAnalyzing} />
           </div>
 
+          {/* Role Suggestions */}
           <div className="bg-white p-4 rounded-lg shadow">
             <h3 className="text-lg font-semibold mb-2">Role Suggestions</h3>
             <div className="space-y-2">
@@ -156,8 +177,8 @@ function App() {
                   <div>
                     <div className="font-medium">{c.role.title}</div>
                     <div className="text-xs text-gray-500">
-                      {Math.round(c.score * 10) / 10} pts — matched:{' '}
-                      {c.matchedSkills.join(', ') || '—'}
+                      {Math.round(c.score * 10) / 10} pts — matched:{" "}
+                      {c.matchedSkills.join(", ") || "—"}
                     </div>
                   </div>
                   <button
@@ -171,12 +192,13 @@ function App() {
             </div>
           </div>
 
+          {/* Mentor */}
           <div className="bg-white p-4 rounded-lg shadow">
             <h3 className="text-lg font-semibold mb-2">Mentor</h3>
             <MentorAvatar
               message={
                 analysisResult?.trainingPlan?.mentorMessage ??
-                'Upload a resume to get personalized guidance.'
+                "Upload a resume to get personalized guidance."
               }
               onSpeak={handleMentorSpeak}
               isSpeaking={isSpeaking}
@@ -184,50 +206,106 @@ function App() {
           </div>
         </div>
 
+        {/* Main Content */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white p-4 rounded-lg shadow">
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-2xl font-bold">Skill Gap Identifier</h2>
-                <p className="text-sm text-gray-500">
-                  Automated skill gap detection and personalized training plans.
-                </p>
-              </div>
-              <div className="text-sm text-gray-600">
-                {selectedFile ? selectedFile.name : 'No file'}
-              </div>
+          {/* Header */}
+          <div className="bg-white p-4 rounded-lg shadow flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">Skill Gap Identifier</h2>
+              <p className="text-sm text-gray-500">
+                Automated skill gap detection and personalized training plans.
+              </p>
+            </div>
+            <div className="text-sm text-gray-600">
+              {selectedFile ? selectedFile.name : "No file"}
             </div>
           </div>
 
           {analysisResult ? (
-            <>
-              <div className="bg-white p-4 rounded-lg shadow">
-                <ReadinessScore score={analysisResult.trainingPlan.readinessScore} />
-              </div>
+            <div className="bg-white rounded-lg shadow">
+              {/* Tabs */}
+              <nav
+                className="flex gap-3 p-3 bg-gray-50 rounded-t-lg"
+                aria-label="Tabs"
+              >
+                {[
+                  { id: "overview", name: "Overview", icon: "📊" },
+                  { id: "roadmap", name: "Roadmap", icon: "🗺️" },
+                  { id: "skillmap", name: "Skill Map", icon: "🎯" },
+                  { id: "training", name: "Training Plan", icon: "📚" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                      activeTab === tab.id
+                        ? "bg-blue-600 text-white shadow"
+                        : "bg-white text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    <span>{tab.icon}</span>
+                    <span>{tab.name}</span>
+                  </button>
+                ))}
+              </nav>
 
-              <div className="bg-white p-4 rounded-lg shadow">
-                <RoleSelector
-                  roles={roleSkillsets}
-                  selectedRole={selectedRole}
-                  onRoleSelect={r => setSelectedRole(r)}
-                />
-              </div>
+              {/* Tab Content */}
+              <div className="p-6">
+                {activeTab === "overview" && (
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <div className="bg-white rounded-lg shadow p-4">
+                      <ReadinessScore
+                        score={analysisResult.trainingPlan.readinessScore}
+                      />
+                    </div>
+                    <div className="bg-white rounded-lg shadow p-4">
+                      <RoleSelector
+                        roles={roleSkillsets}
+                        selectedRole={selectedRole}
+                        onRoleSelect={(r) => setSelectedRole(r)}
+                      />
+                    </div>
+                  </div>
+                )}
 
-              <div className="bg-white p-4 rounded-lg shadow">
-                <SkillMap
-                  skillGaps={calculateSkillGaps(
-                    analysisResult.userProfile,
-                    analysisResult.targetRole
-                  )}
-                />
-              </div>
+                {activeTab === "roadmap" && (
+                  <div className="bg-white rounded-lg shadow p-4">
+                    <Roadmap
+                      trainingPlan={analysisResult.trainingPlan}
+                      skillGaps={calculateSkillGaps(
+                        analysisResult.userProfile,
+                        analysisResult.targetRole
+                      )}
+                      targetRole={analysisResult.targetRole.title}
+                      currentReadiness={
+                        analysisResult.trainingPlan.readinessScore
+                      }
+                    />
+                  </div>
+                )}
 
-              <TrainingPlan
-                trainingPlan={analysisResult.trainingPlan}
-                onDownloadPlan={handleDownloadPlan}
-                onSpeakPlan={handleSpeakPlan}
-              />
-            </>
+                {activeTab === "skillmap" && (
+                  <div className="bg-white rounded-lg shadow p-4">
+                    <SkillMap
+                      skillGaps={calculateSkillGaps(
+                        analysisResult.userProfile,
+                        analysisResult.targetRole
+                      )}
+                    />
+                  </div>
+                )}
+
+                {activeTab === "training" && (
+                  <div className="bg-white rounded-lg shadow p-4">
+                    <TrainingPlan
+                      trainingPlan={analysisResult.trainingPlan}
+                      onDownloadPlan={handleDownloadPlan}
+                      onSpeakPlan={handleSpeakPlan}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
           ) : (
             <div className="bg-white p-6 rounded-lg shadow text-gray-500">
               Upload a resume to get a skill analysis and training plan.
